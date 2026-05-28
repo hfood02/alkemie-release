@@ -1,7 +1,7 @@
-# Alkemie HPC Nuitka 运行包
+# Alkemie HPC 运行包
 
-本运行包包含 Nuitka 编译后的后端程序、runner、前端构建产物、配置模板和启动脚本。
-第三方 Python 依赖由部署环境的 Conda 环境安装。
+本运行包包含服务程序、runner、前端文件、配置模板和启动脚本。
+Python 依赖由部署环境的 Conda 环境安装。
 
 ## 内容
 
@@ -34,8 +34,6 @@ workspaces/
 ## 快速启动
 
 1. 解压运行包。
-
-   如果拿到的是 GitHub Actions artifact zip：
 
    ```bash
    unzip alkemie-hpc-nuitka-linux-x86_64.zip
