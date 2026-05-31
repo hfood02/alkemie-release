@@ -20,6 +20,8 @@ scripts/
   check-env.sh
   run.sh
   start.sh
+  start-nginx.sh
+  stop-nginx.sh
   stop.sh
   healthcheck.sh
 requirements.txt
@@ -29,6 +31,18 @@ wheelhouse/   # 可选，离线 Python 依赖
 model-cache/
 logs/
 workspaces/
+```
+
+## 系统要求
+
+- Linux x86_64。
+- glibc 2.17 或更高版本，通常对应 CentOS 7 及以上。
+- Conda 环境，Python 主次版本需要与运行包一致。
+
+查看服务器 glibc 版本：
+
+```bash
+ldd --version
 ```
 
 ## 快速启动
@@ -53,11 +67,13 @@ workspaces/
    conda activate alkemie
    ```
 
-3. 安装并检查 Python 依赖。
+   `environment.yml` 会优先从 conda-forge 安装 NumPy、SciPy、OpenBLAS 等科学计算依赖。
+   不要只执行 `pip install -r requirements.txt` 作为安装步骤。
+
+3. 安装 Python 依赖。
 
    ```bash
    scripts/install-deps.sh
-   scripts/check-env.sh
    ```
 
    如果现场不能联网，可以把预先下载好的 Python wheel 放到 `wheelhouse/`。
@@ -95,7 +111,15 @@ workspaces/
    AUTH_REFRESH_COOKIE_SECURE=true
    ```
 
-6. 准备工作目录。
+6. 检查运行环境。
+
+   ```bash
+   scripts/check-env.sh
+   ```
+
+   如果启用了 `ALKEMIE_USE_NGINX=true`，检查脚本会确认当前环境可以执行 `nginx`。
+
+7. 准备工作目录。
 
    ```bash
    mkdir -p /data1/alkemie-share/workspaces
@@ -104,7 +128,7 @@ workspaces/
    这个目录用于项目文件、上传文件、作业脚本、计算结果和日志。使用
    `cluster_runner` 时，平台服务账号和用户 runner 账号都必须能访问它。
 
-7. 可选：放置离线 embedding 模型。
+8. 可选：放置离线 embedding 模型。
 
    默认模型是：
 
@@ -125,7 +149,7 @@ workspaces/
    model-cache/hub/models--sentence-transformers--all-MiniLM-L6-v2
    ```
 
-8. 启动服务。
+9. 启动服务。
 
    ```bash
    scripts/start.sh
@@ -148,12 +172,19 @@ workspaces/
 默认监听：
 
 ```env
+ALKEMIE_USE_NGINX=false
 ALKEMIE_HOST=0.0.0.0
 ALKEMIE_PORT=8443
 ALKEMIE_NO_SSL=true
 ```
 
-如果服务部署在登录节点且浏览器无法直接访问，使用 SSH 隧道：
+这种模式由应用直接提供 HTTP，浏览器访问：
+
+```text
+http://<服务节点地址>:8443
+```
+
+如果集群不允许从本地电脑直接访问该端口，使用 SSH 隧道：
 
 ```bash
 ssh -L 8443:localhost:8443 username@hpc.example.edu
@@ -165,8 +196,22 @@ ssh -L 8443:localhost:8443 username@hpc.example.edu
 http://localhost:8443
 ```
 
-运行包默认由应用直接提供普通 HTTP。生产环境建议放在站点已有的反向代理或网关后面，
-由外部代理终止 HTTPS。
+需要用户态反向代理时，修改 `.env`：
+
+```env
+ALKEMIE_USE_NGINX=true
+ALKEMIE_PORT=8443
+ALKEMIE_BACKEND_PORT=8442
+ALKEMIE_NGINX_DIR=./run/nginx
+ALKEMIE_NO_SSL=true
+```
+
+此时 nginx 监听 `ALKEMIE_PORT`，应用只监听
+`127.0.0.1:ALKEMIE_BACKEND_PORT`。nginx 的配置、pid、日志和临时目录都在运行包目录下，
+不需要 sudo 权限。
+
+用户态 nginx 不能绕过集群网络限制：如果登录节点或服务节点端口没有对本地电脑开放，
+仍然需要 SSH 隧道。站点已有 HTTPS 网关时，也可以让站点网关转发到 `ALKEMIE_PORT`。
 
 ## Runner 模式
 
