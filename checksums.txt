@@ -1,2 +1,2 @@
-9a781cceae252a85ee6b4360996b9a78d363131682b2c4a4124ee94fdd7aee20  alkemie-hpc-nuitka-linux-x86_64.zip
+bc06218296b1b2cd532784690d2df7073fd6b69954446da40f47228c29037f65  alkemie-hpc-nuitka-linux-x86_64.zip
 e4473043bbe3b14d2d47d709572ed227dc1bc2e4b6a6a695af5640656ecf456b  alkemie-model-cache-all-MiniLM-L6-v2.tar.gz
