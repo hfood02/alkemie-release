@@ -118,6 +118,8 @@ ldd --version
    ```
 
    如果启用了 `ALKEMIE_USE_NGINX=true`，检查脚本会确认当前环境可以执行 `nginx`。
+   如果检查脚本提示 Python 版本不匹配，或日志出现 `No module named 'encodings'`，
+   通常是没有激活运行包对应的 Conda 环境。先执行 `conda activate alkemie`，再重新检查。
 
 7. 准备工作目录。
 
@@ -159,6 +161,20 @@ ldd --version
 
    ```bash
    tail -f logs/server.log
+   ```
+
+   如果日志出现：
+
+   ```text
+   Fatal Python error: init_fs_encoding
+   ModuleNotFoundError: No module named 'encodings'
+   ```
+
+   先确认已激活 Conda 环境：
+
+   ```bash
+   conda activate alkemie
+   scripts/check-env.sh
    ```
 
    停止服务：
