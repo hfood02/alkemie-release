@@ -121,6 +121,8 @@ ldd --version
    如果启用了 `ALKEMIE_USE_NGINX=true`，检查脚本会确认当前环境可以执行 `nginx`。
    如果检查脚本提示 Python 版本不匹配，或日志出现 `No module named 'encodings'`，
    通常是没有激活运行包对应的 Conda 环境。先执行 `conda activate alkemie`，再重新检查。
+   智能体工作台执行项目脚本时默认使用当前 Conda 环境里的 Python；如需指定其他解释器，
+   在 `.env` 设置 `ALKEMIE_PROJECT_PYTHON=/path/to/python`。
 
 7. 准备工作目录。
 
@@ -142,6 +144,7 @@ ldd --version
    如果模型包名为 `alkemie-model-cache-all-MiniLM-L6-v2.tar.gz`：
 
    ```bash
+   cp /path/to/alkemie-model-cache-all-MiniLM-L6-v2.tar.gz .
    mkdir -p model-cache/hub
    tar -xzf alkemie-model-cache-all-MiniLM-L6-v2.tar.gz -C model-cache/hub
    ```
@@ -157,6 +160,19 @@ ldd --version
    ```bash
    scripts/start.sh
    ```
+
+   启动后脚本会打印访问地址。若 `.env` 设置为：
+
+   ```env
+   ALKEMIE_USE_NGINX=true
+   ALKEMIE_PORT=8443
+   ALKEMIE_BACKEND_PORT=8442
+   ALKEMIE_NO_SSL=false
+   ```
+
+   浏览器访问端口是 `8443`，不是后端内部端口 `8442`。`scripts/start.sh`
+   会自动探测节点地址，并按实际协议打印 `Local URL`、`Node URL` 和 SSH 隧道示例。
+   如果自动探测的节点地址不对，再设置 `ALKEMIE_PUBLIC_HOST=<服务节点地址或 IP>`。
 
    查看日志：
 
@@ -220,15 +236,31 @@ ALKEMIE_USE_NGINX=true
 ALKEMIE_PORT=8443
 ALKEMIE_BACKEND_PORT=8442
 ALKEMIE_NGINX_DIR=./run/nginx
-ALKEMIE_NO_SSL=true
+ALKEMIE_NO_SSL=false
+ALKEMIE_SSL_CERT=./certs/cert.pem
+ALKEMIE_SSL_KEY=./certs/key.pem
 ```
 
 此时 nginx 监听 `ALKEMIE_PORT`，应用只监听
 `127.0.0.1:ALKEMIE_BACKEND_PORT`。nginx 的配置、pid、日志和临时目录都在运行包目录下，
 不需要 sudo 权限。
 
-用户态 nginx 不能绕过集群网络限制：如果登录节点或服务节点端口没有对本地电脑开放，
-仍然需要 SSH 隧道。站点已有 HTTPS 网关时，也可以让站点网关转发到 `ALKEMIE_PORT`。
+`ALKEMIE_NO_SSL=false` 时，nginx 对外提供 HTTPS；后端仍然只在本机 HTTP 端口运行。
+如果 `ALKEMIE_SSL_CERT` 和 `ALKEMIE_SSL_KEY` 不存在，`scripts/start.sh` 会自动生成
+自签名证书。浏览器首次访问自签名证书时会提示不受信任，测试环境可以手动接受；生产环境
+应替换为站点签发的证书。
+
+部分集群或代理会重置直连 HTTP 的 `PUT`/`DELETE` 请求，表现为页面能打开但保存、删除失败。
+这种情况下使用上面的 HTTPS nginx 配置，或改用 SSH 隧道访问。用户态 nginx 不能绕过端口
+完全不开放的网络限制；如果登录节点或服务节点端口没有对本地电脑开放，仍然需要 SSH 隧道。
+站点已有 HTTPS 网关时，也可以让站点网关转发到 `ALKEMIE_PORT`。
+
+`scripts/start.sh` 会自动探测 `Node URL`。只有自动探测的节点地址不对时才需要设置
+`ALKEMIE_PUBLIC_HOST`；该值只填写主机名或 IP，不带 `http://`、`https://` 或端口。
+
+`ALKEMIE_ALLOWED_ORIGINS` 在单用户运行包部署下可以留空；`scripts/run.sh` 会根据自动探测
+或 `ALKEMIE_PUBLIC_HOST` 覆盖的节点地址、端口和协议，自动加入 localhost 与节点地址来源。
+多用户模式必须显式配置，例如 `https://10.251.0.28:8443`，且不能使用 `*`。
 
 ## Runner 模式
 
