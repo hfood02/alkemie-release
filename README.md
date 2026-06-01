@@ -93,6 +93,7 @@ ldd --version
    LLM_API_KEY=replace-with-your-llm-api-key
    JWT_SECRET_KEY=replace-with-a-unique-32-plus-character-secret
    ALKEMIE_WORKSPACES_ROOT=/data1/alkemie-share/workspaces
+   HONPAS_PSEUDO_FOLDER=/data1/alkemie-share/workspaces/honpas_pseudo_library
    ```
 
    默认是单用户模式：
