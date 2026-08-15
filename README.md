@@ -1,6 +1,7 @@
 # Alkemie HPC 运行包
 
-本运行包包含服务程序、runner、前端文件、配置模板和启动脚本。
+本运行包包含服务程序、cluster Gateway、standalone privileged-helper bundle、
+前端文件、配置模板和启动脚本。
 Python 依赖由部署环境的 Conda 环境安装。
 
 ## 内容
@@ -14,8 +15,14 @@ server/
   skills/
   shared/
 bin/
-  alkemie-runner
+  alkemie-cluster-gateway
+libexec/
+  alkemie-privileged-helper/
+config/
+  gateway.env.example
+  privileged-helper.json.example
 scripts/
+  install-helper.sh
   install-deps.sh
   check-env.sh
   run.sh
@@ -67,8 +74,11 @@ ldd --version
    conda activate alkemie
    ```
 
-   `environment.yml` 会优先从 conda-forge 安装 NumPy、SciPy、OpenBLAS 等科学计算依赖。
-   不要只执行 `pip install -r requirements.txt` 作为安装步骤。
+   `environment.yml` 会优先从 conda-forge 安装 NumPy、SciPy、OpenBLAS、Phonopy、
+   MP API 和 Sentence Transformers 等带有原生扩展或大型二进制依赖的组件。FAISS
+   则由下一步安装脚本固定为提供 CPython 3.12 manylinux2014 wheel 的
+   `faiss-cpu==1.9.0.post1`，以兼容 glibc 2.17。不要只执行
+   `pip install -r requirements.txt` 作为安装步骤。
 
 3. 安装 Python 依赖。
 
@@ -96,19 +106,17 @@ ldd --version
    HONPAS_PSEUDO_FOLDER=/data1/alkemie-share/workspaces/honpas_pseudo_library
    ```
 
-   默认是单用户模式：
+   默认是 `local` profile：
 
    ```env
-   MULTI_USER_MODE=False
-   ALKEMIE_EXECUTION_BACKEND=standalone
+   ALKEMIE_DEPLOYMENT_PROFILE=local
    ```
 
-   如果启用多用户模式，改为：
+   多平台用户共用服务 Unix 账号时，改为：
 
    ```env
-   MULTI_USER_MODE=True
+   ALKEMIE_DEPLOYMENT_PROFILE=shared
    DATABASE_URL=postgresql://username:password@db-host:5432/alkemie
-   ALKEMIE_ALLOWED_ORIGINS=https://your-domain.example.com
    AUTH_REFRESH_COOKIE_SECURE=true
    ```
 
@@ -130,8 +138,8 @@ ldd --version
    mkdir -p /data1/alkemie-share/workspaces
    ```
 
-   这个目录用于项目文件、上传文件、作业脚本、计算结果和日志。使用
-   `cluster_runner` 时，平台服务账号和用户 runner 账号都必须能访问它。
+   这个目录用于项目文件、上传文件、作业脚本、计算结果和日志。
+   `cluster` profile 下，helper 的 allowed roots 必须显式覆盖该 managed workspace。
 
 8. 可选：放置离线 embedding 模型。
 
@@ -258,24 +266,56 @@ ALKEMIE_SSL_KEY=./certs/key.pem
 `scripts/start.sh` 会自动探测 `Node URL`。只有自动探测的节点地址不对时才需要设置
 `ALKEMIE_PUBLIC_HOST`；该值只填写主机名或 IP，不带 `http://`、`https://` 或端口。
 
-`ALKEMIE_ALLOWED_ORIGINS` 在单用户运行包部署下可以留空；`scripts/run.sh` 会根据自动探测
-或 `ALKEMIE_PUBLIC_HOST` 覆盖的节点地址、端口和协议，自动加入 localhost 与节点地址来源。
-多用户模式必须显式配置，例如 `https://10.251.0.28:8443`，且不能使用 `*`。
+前端、REST API 和 Socket.IO 由同一个对外地址提供，Origin 会根据浏览器当前访问的协议、
+主机和端口自动校验。切换域名或端口不需要同步修改 allowlist。
 
-## Runner 模式
+## Cluster Gateway
 
-如果需要让每个用户用自己的 HPC 账号提交作业，在 `.env` 启用：
+如果需要让每个平台用户以映射的 Unix 账号提交作业，在 `.env` 启用：
 
 ```env
-MULTI_USER_MODE=True
-ALKEMIE_EXECUTION_BACKEND=cluster_runner
+ALKEMIE_DEPLOYMENT_PROFILE=cluster
+ALKEMIE_GATEWAY_SIGNING_KEY_FILE=./secrets/gateway-signing-key.pem
 ```
 
-用户在自己的登录节点 shell 中运行：
+普通用户不安装或绑定任何客户端。管理员在后台配置 Unix account mapping，并为全局唯一
+Gateway 创建一次性 enrollment code。Gateway 服务账号执行：
 
 ```bash
-bin/alkemie-runner bind --server-url https://your-domain.example.com --bind-code <code>
-bin/alkemie-runner run --config ~/.alkemie/runner.json --poll-interval 10
+bin/alkemie-cluster-gateway enroll \
+  --server-url https://your-domain.example.com \
+  --enrollment-code <code> \
+  --allowed-root /shared/alkemie/workspaces \
+  --helper-path /usr/local/libexec/alkemie-privileged-helper/alkemie-privileged-helper \
+  --sudo-path /usr/bin/sudo
+bin/alkemie-cluster-gateway run --queue-system slurm
 ```
 
-runner 的 `--allowed-root` 必须覆盖 `.env` 中的 `ALKEMIE_WORKSPACES_ROOT`。
+helper bundle 只由集群管理员安装一次。先生成控制面签名密钥：
+
+```bash
+mkdir -p secrets
+umask 077
+openssl genpkey -algorithm ED25519 -out secrets/gateway-signing-key.pem
+openssl pkey -in secrets/gateway-signing-key.pem -pubout \
+  -out secrets/gateway-signing-key.pub
+```
+
+再复制并审核 `config/privileged-helper.json.example`。其中
+`ALKEMIE_HELPER_PROJECT_PYTHON_EXECUTABLE` 必须指向所有映射用户均可执行、且包含项目脚本所需依赖的
+绝对 Python 路径；helper command timeout 应不小于平台的项目 Python timeout。然后安装：
+
+```bash
+cp config/privileged-helper.json.example config/privileged-helper.json
+
+sudo env \
+  ALKEMIE_GATEWAY_SERVICE_USER=alkemie-gateway \
+  ALKEMIE_HELPER_BUNDLE_SOURCE="$PWD/libexec/alkemie-privileged-helper" \
+  ALKEMIE_HELPER_CONFIG_SOURCE="$PWD/config/privileged-helper.json" \
+  ALKEMIE_HELPER_INSTALL_DIR=/usr/local/libexec/alkemie-privileged-helper \
+  ALKEMIE_HELPER_EXECUTABLE_NAME=alkemie-privileged-helper \
+  ALKEMIE_HELPER_PUBLIC_KEY_SOURCE="$PWD/secrets/gateway-signing-key.pub" \
+  ALKEMIE_HELPER_PUBLIC_KEY_INSTALL_PATH=/etc/alkemie/gateway-signing-key.pub \
+  ALKEMIE_HELPER_SUDOERS_PATH=/etc/sudoers.d/alkemie-privileged-helper \
+  scripts/install-helper.sh
+```
