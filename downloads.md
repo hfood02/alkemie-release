@@ -1,25 +1,24 @@
-# 文件清单
+# Alkemie 下载
 
-版本：latest
+版本：v2.0.0-20261013
 
-## Nuitka/HPC 运行包
+| 文件 | 用途 | 校验文件 |
+| --- | --- | --- |
+| [alkemie-hpc-nuitka-linux-x86_64.zip](https://github.com/hfood02/alkemie-release/releases/latest/download/alkemie-hpc-nuitka-linux-x86_64.zip) | Linux x86_64、Python 3.12 运行包 | [SHA-256](alkemie-hpc-nuitka-linux-x86_64.zip.sha256) |
+| [alkemie-model-cache-all-MiniLM-L6-v2.tar.gz](https://github.com/hfood02/alkemie-release/releases/latest/download/alkemie-model-cache-all-MiniLM-L6-v2.tar.gz) | 本地知识检索的离线模型 | [SHA-256](alkemie-model-cache-all-MiniLM-L6-v2.tar.gz.sha256) |
 
-文件名：alkemie-hpc-nuitka-linux-x86_64.zip
-校验文件：alkemie-hpc-nuitka-linux-x86_64.zip.sha256
+运行包包含网页、服务程序和启动脚本；Python 科学计算依赖通过包内的 Conda 环境和安装脚本准备。默认离线检索需要同时下载模型缓存包。
 
-## Embedding 模型缓存
+[安装与升级说明](README.md) · [版本更新](https://github.com/hfood02/alkemie-release/releases/latest)
 
-文件名：alkemie-model-cache-all-MiniLM-L6-v2.tar.gz
-校验文件：alkemie-model-cache-all-MiniLM-L6-v2.tar.gz.sha256
+## 可选校验
 
-## 校验
+需要确认下载文件完整性时，将两个下载文件与 [checksums.txt](checksums.txt) 放在同一目录。
 
-Linux:
+Linux：
 
-    sha256sum -c alkemie-hpc-nuitka-linux-x86_64.zip.sha256
-    sha256sum -c alkemie-model-cache-all-MiniLM-L6-v2.tar.gz.sha256
+    sha256sum -c checksums.txt
 
-macOS:
+macOS：
 
-    shasum -a 256 -c alkemie-hpc-nuitka-linux-x86_64.zip.sha256
-    shasum -a 256 -c alkemie-model-cache-all-MiniLM-L6-v2.tar.gz.sha256
+    shasum -a 256 -c checksums.txt
