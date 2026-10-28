@@ -6,22 +6,53 @@ Alkemie 是面向 HPC 的材料科学计算平台。通过浏览器组织计算�
 
 ## 本次更新
 
-- 研究工作台支持结合当前组件、项目文件和计算结果开展对话，分析报告可直接显示图表并下载结果。
-- 工作流模板可展开为可配置的组件组，画布支持组件设置、组内添加和整组删除。
-- 统一材料数据库与结构库检索，改进结构建模、预览和格式校验。
-- 项目文件支持分页查看 Excel、Word、CSV 和 TSV，保留原文件下载。
-- 完善 VASP 的 NEB、AIMD、SCF 监控、外电场、Bader、ELF 和 DFT+U 工作流。
-- 改进 HONPAS 前驱文件继承和多帧输入，修复 GPUMD 的 NEP 模型复用及结构输入生成。
+- 修复运行包启动时提示缺少 `active_learning`、`autocorrection`、`gateway` 等模块的问题。
+- 修复 FAISS 依赖版本检查误报，正确安装 `faiss-cpu 1.9.0.post1` 后可通过该项检查。
+- 补充 Windows 下 WSL2 + Ubuntu 的安装、文件存放和浏览器访问说明。
 
 ## 系统要求
 
 - Linux x86_64；服务程序以 glibc 2.17 为构建基线。
+- Windows 用户通过 **WSL2 + Ubuntu 22.04/24.04 x86_64** 运行同一 Linux 包，再用 Windows 浏览器访问；当前不提供原生 Windows 可执行程序或 ARM64 运行包。
 - Conda 和 Python 3.12。较新的 Linux 系统更适合安装当前科学计算依赖；CentOS 7 等旧系统需要使用兼容 glibc 2.17 的 Conda 安装器与依赖包。
 - 可写的项目存储目录，以及集群允许使用的服务端口。
 - 计算软件及赝势、轨道或势函数库由所在集群提供，并在平台中配置。
 - `shared` 和 `cluster` 模式的智能助手执行命令需要管理员配置系统 bubblewrap 和 user namespace；`local` 模式无需额外安装系统 bubblewrap。
 
 运行包已包含网页、服务程序、智能助手运行时、材料知识库和启动脚本，运行服务器无需安装 Node.js。Python 科学计算依赖通过下面的 Conda 环境和安装脚本准备。
+
+## Windows 用户准备 WSL2
+
+如果只访问集群上已部署的 Alkemie，直接使用 Windows 浏览器或下文的 SSH 隧道，无需安装 WSL。
+需要在本机运行时，在管理员 PowerShell 中安装 Ubuntu；已有 WSL 的用户先检查发行版和版本：
+
+```powershell
+wsl --install -d Ubuntu-22.04
+wsl --list --verbose
+```
+
+按安装提示重启并创建 Ubuntu 用户，确认列表中的 Ubuntu 的 `VERSION` 为 `2`。已有 WSL1 发行版可运行
+`wsl --set-version Ubuntu-22.04 2`，其中发行版名称须与列表一致。安装条件和故障排查见
+[Microsoft WSL 安装说明](https://learn.microsoft.com/windows/wsl/install)。
+
+之后所有 `conda`、`tar` 和 `scripts/*.sh` 命令均在 **Ubuntu 终端**执行。Conda 也须安装 Linux x86_64 版本，
+不能使用 Windows 的 Conda/Python。先确认 `uname -m` 输出 `x86_64`，再在 Linux 用户目录准备安装位置：
+
+```bash
+mkdir -p ~/Alkemie2.0 ~/alkemie-workspaces
+cd ~/Alkemie2.0
+explorer.exe .
+```
+
+将两个下载包复制到打开的目录，然后继续下方安装步骤，在 Ubuntu 内解压。项目和运行包建议保存在 Linux 用户目录，
+不要在 Windows 解压后从 `/mnt/c` 运行；参见 [WSL 文件存储建议](https://learn.microsoft.com/windows/wsl/filesystems)。
+编辑 `.env` 时使用 UTF-8、LF 换行和 Linux 绝对路径（例如 `/home/yourname/alkemie-workspaces`）。
+
+启动并通过 `scripts/healthcheck.sh` 后，在 Windows 的 Edge/Chrome 打开打印的 `Local URL`，默认是
+`https://localhost:8443`；设置 `ALKEMIE_NO_SSL=true` 时使用 `http://localhost:8443`。
+WSL 支持从 Windows 经 localhost 访问 Linux 服务，参见 [WSL 网络说明](https://learn.microsoft.com/windows/wsl/networking)。
+如果 Ubuntu 内健康检查通过而 Windows 无法打开页面，先检查 Windows 是否占用了该端口，以及 VPN/防火墙的本地访问设置。
+关闭或重启 WSL 后，须重新激活 Conda 环境并运行 `scripts/start.sh`。
 
 ## 安装与启动
 
